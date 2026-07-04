@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.branders.spawnermod.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "LimitedSpawnsMixin",
+    "SpawnerBlockExpMixin",
+    "MobEntityDropsMixin",
+    "SpawnerBlockCancelDropMixin",
+    "UpdateNeighborMixin",
+    "SpawnerRangeMixin",
+    "BlockHardnessMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

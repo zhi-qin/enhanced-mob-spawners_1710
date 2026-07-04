@@ -1,0 +1,31 @@
+item.spawnermod.spawner_key=Chave de Gerador
+item.spawnermod.iron_golem_spawn_egg=Ovo Gerador de Golem de Ferro
+
+button.count.default=Contagem: Padr\u00e3o
+button.count.low=Contagem: Baixa
+button.count.high=Contagem: Alta
+button.count.very_high=Contagem: Muita Alta
+button.count.disabled=Contagem Desativada
+
+button.speed.default=Velocidade: Padr\u00e3o
+button.speed.low=Velocidade: Lenta
+button.speed.high=Velocidade: R\u00e1pida
+button.speed.very_high=Velocidade: Muito R\u00e1pida
+button.speed.disabled=Velocidade Desativada
+
+button.range.default=Alcance: Longe 32
+button.range.low=Alcance: Padr\u00e3o 16
+button.range.high=Alcance: Muito Longe 64
+button.range.very_high=Alcance: Extremo 128
+button.range.disabled=Alcance Desativado
+button.range.custom=Range: Custom
+
+button.toggle.enabled=Gerador: Ligado
+button.toggle.disabled=Gerador: Desligado
+
+button.save=Salvar
+button.cancel=Cancelar
+
+tooltip.spawnermod.spawner_key_disabled=A Chave de Gerador est\u00e1 desativada
+
+gui.spawnermod.spawner_config_screen_title=Configura\u00e7\u00e3o do Gerador

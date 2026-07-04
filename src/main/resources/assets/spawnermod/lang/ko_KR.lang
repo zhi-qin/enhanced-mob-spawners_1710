@@ -1,0 +1,31 @@
+item.spawnermod.spawner_key=\uc0dd\uc131\uae30 \uc5f4\uc1e0
+item.spawnermod.iron_golem_spawn_egg=\ucca0 \uace8\ub808\uc2a4 \uc2a4\ud3f0 \uc54c
+
+button.count.default=\uc218\ub7c9: \uae30\ubcf8
+button.count.low=\uc218\ub7c9: \ub0ae\uc74c
+button.count.high=\uc218\ub7c9: \ub192\uc74c
+button.count.very_high=\uc218\ub7c9: \ub9e4\uc6b0 \ub192\uc74c
+button.count.disabled=\uc218\ub7c9 \ube44\ud65c\uc131\ud654
+
+button.speed.default=\uc18d\ub3c4: \uae30\ubcf8
+button.speed.low=\uc18d\ub3c4: \ub290\ub9bc
+button.speed.high=\uc18d\ub3c4: \ube60\ub984
+button.speed.very_high=\uc18d\ub3c4: \ub9e4\uc6b0 \ube60\ub984
+button.speed.disabled=\uc18d\ub3c4 \ube44\ud65c\uc131\ud654
+
+button.range.default=\ubc94\uc704: \uae30\ubcf8
+button.range.low=\ubc94\uc704: \ub0ae\uc74c
+button.range.high=\ubc94\uc704: \ub192\uc74c
+button.range.very_high=\ubc94\uc704: \ub9e4\uc6b0 \ub192\uc74c
+button.range.disabled=\ubc94\uc704 \ube44\ud65c\uc131\ud654
+button.range.custom=\ubc94\uc704: \uc0ac\uc6a9\uc790 \uc815\uc758
+
+button.toggle.enabled=\uc0dd\uc131\uae30: \ucc28\ub9bc
+button.toggle.disabled=\uc0dd\uc131\uae30: \uaebc\uc9d0
+
+button.save=\uc800\uc7a5
+button.cancel=\ucde8\uc18c
+
+tooltip.spawnermod.spawner_key_disabled=\uc0dd\uc131\uae30 \uc5f4\uc1e0\uac00 \ube44\ud65c\uc131\ud654\ub418\uc5c8\uc2b5\ub2c8\ub2e4
+
+gui.spawnermod.spawner_config_screen_title=\uc0dd\uc131\uae30 \uc124\uc815

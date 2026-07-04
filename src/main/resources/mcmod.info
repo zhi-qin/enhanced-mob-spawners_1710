@@ -1,0 +1,13 @@
+[{
+  "modid": "spawnermod",
+  "name": "Enhanced Mob Spawners",
+  "description": "More features to spawners. For example change range to 128!",
+  "version": "${modVersion}",
+  "mcversion": "${minecraftVersion}",
+  "url": "https://github.com/andersblomqvist/enhanced-mob-spawners",
+  "authorList": ["Branders"],
+  "credits": "Branders",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}]

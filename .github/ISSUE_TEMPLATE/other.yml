@@ -1,0 +1,13 @@
+name: Other
+description: >-
+  Please use this template when the other templates don't seem to match what you need.  
+title: '[Other]: '
+body:
+  - type: textarea
+    id: other
+    attributes:
+      label: Other
+      placeholder: >-
+        Issue description ...
+    validations:
+      required: true

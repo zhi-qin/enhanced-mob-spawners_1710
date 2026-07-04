@@ -1,0 +1,13 @@
+name: Suggestion
+description: >-
+  Please use this template for suggesting a new feature or idea.
+title: '[Suggestion]: '
+body:
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggestion
+      placeholder: >-
+        Provide a brief description of your suggestion as clear as possible.
+    validations:
+      required: true
