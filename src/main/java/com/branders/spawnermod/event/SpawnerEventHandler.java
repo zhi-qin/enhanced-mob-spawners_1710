@@ -470,10 +470,12 @@ public class SpawnerEventHandler {
      * When a spawner receives a redstone signal, disable it (set range to 0)
      * and remember the original range. When the signal is removed, restore it.
      *
-     * The custom NBT flag "ems_redstone_disabled" distinguishes a redstone
-     * disable from a disable done through the GUI or the limited spawns limit,
-     * so removing the redstone signal can never re-enable a spawner that was
-     * intentionally disabled some other way.
+     * The original range is stashed in the custom NBT field "ems_prev_range"
+     * (NOT in SpawnRange, which is the vanilla spawn area and may be configured
+     * freely via /ems setspawnrange). The flag "ems_redstone_disabled"
+     * distinguishes a redstone disable from a disable done through the GUI or
+     * the limited spawns limit, so removing the redstone signal can never
+     * re-enable a spawner that was intentionally disabled some other way.
      */
     private void checkRedstoneControl(World world) {
         for (Object obj : world.loadedTileEntityList) {
@@ -488,25 +490,24 @@ public class SpawnerEventHandler {
 
             boolean isPowered = world.isBlockIndirectlyGettingPowered(x, y, z);
             short currentRange = nbt.getShort("RequiredPlayerRange");
-            short spawnRange = nbt.getShort("SpawnRange");
             boolean redstoneDisabled = nbt.getByte("ems_redstone_disabled") != 0;
 
             if (isPowered) {
-                // Disable while powered, stashing the current range in SpawnRange.
+                // Disable while powered, stashing the current range in ems_prev_range.
                 // Skip spawners that are already disabled (currentRange == 0) so an
                 // intentional GUI / limited-spawns disable is never overwritten.
                 if (!redstoneDisabled && currentRange > 0) {
-                    nbt.setShort("SpawnRange", currentRange);
+                    nbt.setShort("ems_prev_range", currentRange);
                     nbt.setShort("RequiredPlayerRange", (short) 0);
                     nbt.setByte("ems_redstone_disabled", (byte) 1);
                     spawner.readFromNBT(nbt);
                     spawner.markDirty();
                     world.markBlockForUpdate(x, y, z);
                 }
-            } else if (redstoneDisabled && currentRange == 0 && spawnRange > 4) {
+            } else if (redstoneDisabled && currentRange == 0) {
                 // Redstone power removed - restore the range stashed by redstone
-                nbt.setShort("RequiredPlayerRange", spawnRange);
-                nbt.setShort("SpawnRange", (short) 4); // Reset to default
+                nbt.setShort("RequiredPlayerRange", nbt.getShort("ems_prev_range"));
+                nbt.removeTag("ems_prev_range");
                 nbt.setByte("ems_redstone_disabled", (byte) 0);
                 spawner.readFromNBT(nbt);
                 spawner.markDirty();

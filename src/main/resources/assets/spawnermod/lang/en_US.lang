@@ -22,6 +22,11 @@ button.range.high=Range: Very far
 button.range.very_high=Range: Extreme
 button.range.disabled=Range disabled
 button.range.custom=Range: Custom
+button.spawnrange.low=Spawn area: Small
+button.spawnrange.default=Spawn area: Normal
+button.spawnrange.high=Spawn area: Large
+button.spawnrange.very_high=Spawn area: Very Large
+button.spawnrange.disabled=Spawn area disabled
 
 button.toggle.enabled=Spawner: ON
 button.toggle.disabled=Spawner: OFF

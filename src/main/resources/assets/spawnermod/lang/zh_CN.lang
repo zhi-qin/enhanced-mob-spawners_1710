@@ -26,6 +26,11 @@ button.range.high=范围：很远
 button.range.very_high=范围：极远
 button.range.disabled=范围已禁用
 button.range.custom=范围：自定义
+button.spawnrange.low=出生区：小
+button.spawnrange.default=出生区：正常
+button.spawnrange.high=出生区：大
+button.spawnrange.very_high=出生区：超大
+button.spawnrange.disabled=出生区已禁用
 
 button.toggle.enabled=刷怪笼：开启
 button.toggle.disabled=刷怪笼：关闭

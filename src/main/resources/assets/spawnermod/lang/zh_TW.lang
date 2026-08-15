@@ -21,6 +21,11 @@ button.range.high=\u7bc4\u570d\uff1a\u975e\u5e38\u9060
 button.range.very_high=\u7bc4\u570d\uff1a\u6975\u9060
 button.range.disabled=\u7bc4\u570d\u505c\u7528
 button.range.custom=\u7bc4\u570d\uff1a\u81ea\u8a02
+button.spawnrange.low=\u751f\u6210\u5340\uff1a\u5c0f
+button.spawnrange.default=\u751f\u6210\u5340\uff1a\u6b63\u5e38
+button.spawnrange.high=\u751f\u6210\u5340\uff1a\u5927
+button.spawnrange.very_high=\u751f\u6210\u5340\uff1a\u8d85\u5927
+button.spawnrange.disabled=\u751f\u6210\u5340\u5df2\u505c\u7528
 
 button.toggle.enabled=\u751f\u602a\u78da\uff1a\u958b\u555f
 button.toggle.disabled=\u751f\u602a\u78da\uff1a\u95dc\u9589

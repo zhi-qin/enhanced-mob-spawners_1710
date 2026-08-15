@@ -38,7 +38,7 @@ public class SpawnerModCommands extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/ems <key> [value] | /ems check";
+        return "/ems <key> [value] | /ems check | /ems setspawnrange <1-128>";
     }
 
     @Override
@@ -135,6 +135,77 @@ public class SpawnerModCommands extends CommandBase {
                         + EnumChatFormatting.WHITE
                         + nbt.getShort("Delay")
                         + " ticks remaining"));
+            return;
+        }
+
+        // /ems setspawnrange <1-128> - set the vanilla spawn area (SpawnRange)
+        // of the spawner the player is looking at. A bigger SpawnRange lets more
+        // mobs spawn per wave (they are spread over a larger area).
+        if (args[0].equals("setspawnrange")) {
+            if (!(sender instanceof EntityPlayer)) {
+                sender.addChatMessage(
+                    new ChatComponentText(EnumChatFormatting.RED + "[EMS]: Only players can use this command"));
+                return;
+            }
+            if (args.length < 2) {
+                throw new WrongUsageException(getCommandUsage(sender));
+            }
+
+            int range;
+            try {
+                range = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                throw new WrongUsageException(getCommandUsage(sender));
+            }
+            if (range < 1 || range > 128) {
+                sender.addChatMessage(
+                    new ChatComponentText(
+                        EnumChatFormatting.RED + "[EMS]: SpawnRange must be between 1 and 128, got " + range));
+                return;
+            }
+
+            EntityPlayer player = (EntityPlayer) sender;
+            MovingObjectPosition mop = player.rayTrace(8.0D, 1.0F);
+            if (mop == null || mop.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) {
+                sender.addChatMessage(
+                    new ChatComponentText(EnumChatFormatting.RED + "[EMS]: You are not looking at a block"));
+                return;
+            }
+
+            int x = mop.blockX;
+            int y = mop.blockY;
+            int z = mop.blockZ;
+
+            if (player.worldObj.getBlock(x, y, z) != Blocks.mob_spawner) {
+                sender.addChatMessage(
+                    new ChatComponentText(EnumChatFormatting.RED + "[EMS]: You are not looking at a mob spawner"));
+                return;
+            }
+
+            TileEntity te = player.worldObj.getTileEntity(x, y, z);
+            if (!(te instanceof TileEntityMobSpawner)) {
+                sender.addChatMessage(
+                    new ChatComponentText(EnumChatFormatting.RED + "[EMS]: Failed to read spawner data"));
+                return;
+            }
+
+            TileEntityMobSpawner spawner = (TileEntityMobSpawner) te;
+            NBTTagCompound nbt = new NBTTagCompound();
+            spawner.writeToNBT(nbt);
+            nbt.setShort("SpawnRange", (short) range);
+            spawner.readFromNBT(nbt);
+            spawner.markDirty();
+            player.worldObj.markBlockForUpdate(x, y, z);
+
+            sender.addChatMessage(
+                new ChatComponentText(
+                    EnumChatFormatting.GREEN + "[EMS]: SpawnRange set to "
+                        + range
+                        + " (spawn area "
+                        + (range * 2 + 1)
+                        + "x"
+                        + (range * 2 + 1)
+                        + ")"));
             return;
         }
 

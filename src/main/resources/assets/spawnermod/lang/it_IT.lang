@@ -19,6 +19,11 @@ button.range.high=Raggio: molto lontano 64
 button.range.very_high=Raggio: estremo 128
 button.range.disabled=Raggio disabilitato
 button.range.custom=Range: Custom
+button.spawnrange.low=Area di spawn: Piccola
+button.spawnrange.default=Area di spawn: Normale
+button.spawnrange.high=Area di spawn: Grande
+button.spawnrange.very_high=Area di spawn: Molto grande
+button.spawnrange.disabled=Area di spawn disabilitata
 
 button.toggle.enabled=Generatore: attivato
 button.toggle.disabled=Generatore: disattivato

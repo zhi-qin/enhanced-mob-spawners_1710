@@ -39,6 +39,8 @@ public class SpawnerConfigGui extends GuiScreen {
     private static final Data SPAWN_COUNT = new Data(2, 4, 24, 48);
     private static final Data MAX_NEARBY_ENTITIES = new Data(6, 6, 48, 96);
     private static final Data REQUIRED_PLAYER_RANGE = new Data(16, 32, 256, 512);
+    // Spawn area (vanilla SpawnRange): how wide the mobs spread when spawning
+    private static final Data SPAWN_RANGE = new Data(4, 8, 16, 32);
 
     private static final ResourceLocation SPAWNER_CONFIG_TEXTURE = new ResourceLocation(
         SpawnerMod.MOD_ID,
@@ -49,14 +51,14 @@ public class SpawnerConfigGui extends GuiScreen {
 
     private GuiButton countButton;
     private GuiButton speedButton;
-    // TODO: Range adjustment is currently broken, disabled temporarily
-    // private GuiButton rangeButton;
+    private GuiButton rangeButton;
+    private GuiButton spawnRangeButton;
     private GuiButton disableButton;
 
     private int countOptionValue;
     private int speedOptionValue;
-    // TODO: Range adjustment disabled
-    // private int rangeOptionValue;
+    private int rangeOptionValue;
+    private int spawnRangeOptionValue;
 
     private short delay;
     private short minSpawnDelay;
@@ -64,6 +66,7 @@ public class SpawnerConfigGui extends GuiScreen {
     private short spawnCount;
     private short maxNearbyEntities;
     private short requiredPlayerRange;
+    private short spawnRange;
     private boolean disabled;
     private short spawns;
 
@@ -82,11 +85,12 @@ public class SpawnerConfigGui extends GuiScreen {
         this.y = y;
         this.z = z;
 
-        // TODO: Range adjustment disabled
-        // if (ConfigValues.get("default_spawner_range_enabled") == 1) {
-        // isCustomRange = true;
-        // customRange = (short) ConfigValues.get("default_spawner_range");
-        // }
+        // When the default spawner range config is on, the Range button offers a
+        // "custom" preset matching the configured default range.
+        if (ConfigValues.get("default_spawner_range_enabled") == 1) {
+            isCustomRange = true;
+            customRange = (short) ConfigValues.get("default_spawner_range");
+        }
 
         NBTTagCompound nbt = new NBTTagCompound();
         spawner.writeToNBT(nbt);
@@ -97,12 +101,19 @@ public class SpawnerConfigGui extends GuiScreen {
         spawnCount = nbt.getShort("SpawnCount");
         maxNearbyEntities = nbt.getShort("MaxNearbyEntities");
         requiredPlayerRange = nbt.getShort("RequiredPlayerRange");
+        spawnRange = nbt.getShort("SpawnRange");
 
-        short spawnRange = nbt.getShort("SpawnRange");
-        if (spawnRange > 4) {
+        // A disabled spawner has RequiredPlayerRange == 0 (set via the GUI,
+        // redstone or the limited spawns limit). SpawnRange is NOT used as a
+        // disable marker anymore - it is the vanilla spawn area and may be
+        // configured freely via /ems setspawnrange.
+        if (requiredPlayerRange == 0) {
             disabled = true;
             cachedDisabled = true;
-            requiredPlayerRange = spawnRange;
+            // Pre-fill the range that should be restored when re-enabled
+            if (nbt.hasKey("ems_prev_range")) {
+                requiredPlayerRange = nbt.getShort("ems_prev_range");
+            }
         } else {
             disabled = false;
             cachedDisabled = false;
@@ -110,8 +121,8 @@ public class SpawnerConfigGui extends GuiScreen {
 
         countOptionValue = loadOptionState(spawnCount, SPAWN_COUNT);
         speedOptionValue = loadOptionState(minSpawnDelay, MIN_SPAWN_DELAY);
-        // TODO: Range adjustment disabled
-        // rangeOptionValue = loadOptionState(requiredPlayerRange, REQUIRED_PLAYER_RANGE);
+        rangeOptionValue = loadOptionState(requiredPlayerRange, REQUIRED_PLAYER_RANGE);
+        spawnRangeOptionValue = loadOptionState(spawnRange, SPAWN_RANGE);
 
         if (ConfigValues.get("limited_spawns_enabled") != 0) {
             limitedSpawns = true;
@@ -148,21 +159,30 @@ public class SpawnerConfigGui extends GuiScreen {
             StatCollector.translateToLocal("button.speed." + getButtonText(speedOptionValue)));
         buttonList.add(speedButton);
 
-        // TODO: Range button disabled (range adjustment broken)
-        // rangeButton = new GuiButton(
-        // 2,
-        // centerX,
-        // 105,
-        // 108,
-        // 20,
-        // StatCollector.translateToLocal("button.range." + getButtonText(rangeOptionValue)) + " "
-        // + requiredPlayerRange);
-        // buttonList.add(rangeButton);
+        rangeButton = new GuiButton(
+            2,
+            centerX,
+            105,
+            108,
+            20,
+            StatCollector.translateToLocal("button.range." + getButtonText(rangeOptionValue)) + " "
+                + requiredPlayerRange);
+        buttonList.add(rangeButton);
+
+        spawnRangeButton = new GuiButton(
+            6,
+            centerX,
+            130,
+            108,
+            20,
+            StatCollector.translateToLocal("button.spawnrange." + getButtonText(spawnRangeOptionValue)) + " "
+                + spawnRange);
+        buttonList.add(spawnRangeButton);
 
         disableButton = new GuiButton(
             3,
             centerX,
-            130,
+            155,
             108,
             20,
             StatCollector.translateToLocal("button.toggle." + getButtonText(disabled)));
@@ -232,35 +252,56 @@ public class SpawnerConfigGui extends GuiScreen {
                     .translateToLocal("button.speed." + getButtonText(speedOptionValue));
                 break;
 
-            // TODO: Range adjustment disabled
-            // case 2: // Range
-            // if (!isCustomRange) {
-            // rangeOptionValue = (rangeOptionValue + 1) % 4;
-            // } else {
-            // if (rangeOptionValue >= 4) rangeOptionValue = 0;
-            // rangeOptionValue = (rangeOptionValue + 1);
-            // if (rangeOptionValue > 4) rangeOptionValue = 0;
-            // }
-            // switch (rangeOptionValue) {
-            // case 0:
-            // requiredPlayerRange = REQUIRED_PLAYER_RANGE.LOW;
-            // break;
-            // case 1:
-            // requiredPlayerRange = REQUIRED_PLAYER_RANGE.DEFAULT;
-            // break;
-            // case 2:
-            // requiredPlayerRange = REQUIRED_PLAYER_RANGE.HIGH;
-            // break;
-            // case 3:
-            // requiredPlayerRange = REQUIRED_PLAYER_RANGE.HIGHEST;
-            // break;
-            // case 4:
-            // requiredPlayerRange = customRange;
-            // break;
-            // }
-            // rangeButton.displayString = StatCollector.translateToLocal(
-            // "button.range." + getButtonText(rangeOptionValue)) + " " + requiredPlayerRange;
-            // break;
+            case 2: // Range (RequiredPlayerRange - how close the player must be)
+                if (!isCustomRange) {
+                    rangeOptionValue = (rangeOptionValue + 1) % 4;
+                } else {
+                    // With a custom default range configured, cycle through
+                    // low/default/high/very_high/custom
+                    if (rangeOptionValue >= 4) rangeOptionValue = 0;
+                    rangeOptionValue = (rangeOptionValue + 1);
+                    if (rangeOptionValue > 4) rangeOptionValue = 0;
+                }
+                switch (rangeOptionValue) {
+                    case 0:
+                        requiredPlayerRange = REQUIRED_PLAYER_RANGE.LOW;
+                        break;
+                    case 1:
+                        requiredPlayerRange = REQUIRED_PLAYER_RANGE.DEFAULT;
+                        break;
+                    case 2:
+                        requiredPlayerRange = REQUIRED_PLAYER_RANGE.HIGH;
+                        break;
+                    case 3:
+                        requiredPlayerRange = REQUIRED_PLAYER_RANGE.HIGHEST;
+                        break;
+                    case 4:
+                        requiredPlayerRange = customRange;
+                        break;
+                }
+                rangeButton.displayString = StatCollector.translateToLocal(
+                    "button.range." + getButtonText(rangeOptionValue)) + " " + requiredPlayerRange;
+                break;
+
+            case 6: // Spawn area (SpawnRange - how wide the mobs spread)
+                spawnRangeOptionValue = (spawnRangeOptionValue + 1) % 4;
+                switch (spawnRangeOptionValue) {
+                    case 0:
+                        spawnRange = SPAWN_RANGE.LOW;
+                        break;
+                    case 1:
+                        spawnRange = SPAWN_RANGE.DEFAULT;
+                        break;
+                    case 2:
+                        spawnRange = SPAWN_RANGE.HIGH;
+                        break;
+                    case 3:
+                        spawnRange = SPAWN_RANGE.HIGHEST;
+                        break;
+                }
+                spawnRangeButton.displayString = StatCollector.translateToLocal(
+                    "button.spawnrange." + getButtonText(spawnRangeOptionValue)) + " " + spawnRange;
+                break;
 
             case 3: // Toggle
                 disabled = !disabled;
@@ -326,7 +367,8 @@ public class SpawnerConfigGui extends GuiScreen {
                 requiredPlayerRange,
                 maxNearbyEntities,
                 minSpawnDelay,
-                maxSpawnDelay));
+                maxSpawnDelay,
+                spawnRange));
     }
 
     private String getButtonText(int optionValue) {
@@ -374,13 +416,19 @@ public class SpawnerConfigGui extends GuiScreen {
             speedButton.enabled = state;
         }
 
-        // TODO: Range button disabled
-        // if (ConfigValues.get("disable_range") != 0) {
-        // rangeButton.enabled = false;
-        // rangeButton.displayString = StatCollector.translateToLocal("button.range.disabled");
-        // } else {
-        // rangeButton.enabled = state;
-        // }
+        if (ConfigValues.get("disable_range") != 0) {
+            rangeButton.enabled = false;
+            rangeButton.displayString = StatCollector.translateToLocal("button.range.disabled");
+        } else {
+            rangeButton.enabled = state;
+        }
+
+        if (ConfigValues.get("disable_range") != 0) {
+            spawnRangeButton.enabled = false;
+            spawnRangeButton.displayString = StatCollector.translateToLocal("button.spawnrange.disabled");
+        } else {
+            spawnRangeButton.enabled = state;
+        }
     }
 
     @Override

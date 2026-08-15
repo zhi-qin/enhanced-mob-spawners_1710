@@ -25,11 +25,12 @@ public class SyncSpawnerMessage implements IMessage {
     private short maxNearbyEntities;
     private short minSpawnDelay;
     private short maxSpawnDelay;
+    private short spawnRange;
 
     public SyncSpawnerMessage() {}
 
     public SyncSpawnerMessage(int x, int y, int z, short delay, short spawnCount, short requiredPlayerRange,
-        short maxNearbyEntities, short minSpawnDelay, short maxSpawnDelay) {
+        short maxNearbyEntities, short minSpawnDelay, short maxSpawnDelay, short spawnRange) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -39,6 +40,7 @@ public class SyncSpawnerMessage implements IMessage {
         this.maxNearbyEntities = maxNearbyEntities;
         this.minSpawnDelay = minSpawnDelay;
         this.maxSpawnDelay = maxSpawnDelay;
+        this.spawnRange = spawnRange;
     }
 
     @Override
@@ -52,6 +54,7 @@ public class SyncSpawnerMessage implements IMessage {
         maxNearbyEntities = buf.readShort();
         minSpawnDelay = buf.readShort();
         maxSpawnDelay = buf.readShort();
+        spawnRange = buf.readShort();
     }
 
     @Override
@@ -65,6 +68,7 @@ public class SyncSpawnerMessage implements IMessage {
         buf.writeShort(maxNearbyEntities);
         buf.writeShort(minSpawnDelay);
         buf.writeShort(maxSpawnDelay);
+        buf.writeShort(spawnRange);
     }
 
     public static class Handler implements IMessageHandler<SyncSpawnerMessage, IMessage> {
@@ -98,12 +102,12 @@ public class SyncSpawnerMessage implements IMessage {
             NBTTagCompound nbt = new NBTTagCompound();
             spawner.writeToNBT(nbt);
 
-            // Handle spawn range toggle (same logic as 1.12+)
-            if (message.requiredPlayerRange == 0) nbt.setShort("SpawnRange", nbt.getShort("RequiredPlayerRange"));
-            else nbt.setShort("SpawnRange", (short) 4);
-
-            // A GUI save overrides any redstone disable state, otherwise a later
-            // redstone unpower would wrongly re-enable the spawner again.
+            // A GUI save is authoritative over any redstone disable state:
+            // clear the redstone flag and its stashed range so a later redstone
+            // unpower can never re-enable a spawner the player just configured.
+            // SpawnRange is left untouched - it is the vanilla spawn area and is
+            // not used as a stash anymore.
+            nbt.removeTag("ems_prev_range");
             nbt.setByte("ems_redstone_disabled", (byte) 0);
 
             // Apply NBT values (same as 1.12+)
@@ -113,6 +117,7 @@ public class SyncSpawnerMessage implements IMessage {
             nbt.setShort("MaxNearbyEntities", message.maxNearbyEntities);
             nbt.setShort("MinSpawnDelay", message.minSpawnDelay);
             nbt.setShort("MaxSpawnDelay", message.maxSpawnDelay);
+            nbt.setShort("SpawnRange", message.spawnRange);
 
             // Write back to spawner (equivalent to 1.12+'s logic.readNbt)
             spawner.readFromNBT(nbt);
