@@ -38,7 +38,8 @@ public class ItemDebugHarmPotion extends Item {
             world.spawnEntityInWorld(new EntityDebugHarmPotion(world, player));
         }
 
-        return stack;
+        // Returning null clears the empty slot instead of leaving a size-0 stack
+        return stack.stackSize <= 0 ? null : stack;
     }
 
     @Override

@@ -20,6 +20,12 @@ public class ConfigValues {
     private static ArrayList<String> SPAWN_EGG_ENTITIES = new ArrayList<String>();
 
     public static void setDefaultConfigValues() {
+        // Clear everything first so a "/ems reset" is a true reset (it would
+        // otherwise keep growing the item blacklist and spawn egg lists).
+        CONFIG_SPEC.clear();
+        ITEM_ID_BLACKLIST.clear();
+        SPAWN_EGG_ENTITIES.clear();
+
         CONFIG_SPEC.put("monster_egg_drop_chance", 4);
         CONFIG_SPEC.put("disable_silk_touch", 0);
         CONFIG_SPEC.put("disable_spawner_config", 0);

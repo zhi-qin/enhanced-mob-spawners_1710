@@ -1,12 +1,13 @@
 package com.branders.spawnermod.event;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import net.minecraft.entity.EntityList;
 import net.minecraft.entity.item.EntityItem;
-import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
@@ -21,6 +22,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.world.WorldEvent;
 
 import com.branders.spawnermod.SpawnerMod;
 import com.branders.spawnermod.config.ConfigValues;
@@ -35,8 +37,10 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  */
 public class SpawnerEventHandler {
 
-    // Track spawn counts for limited spawns feature - key is "dim_x_y_z"
-    private Map<String, Short> spawnerSpawnCounts = new HashMap<String, Short>();
+    // Last seen spawner Delay per "dim_x_y_z". Used to detect when a spawner
+    // completes a spawn cycle (vanilla resets Delay to a positive value after
+    // spawning) so we can count towards the limited spawns limit.
+    private Map<String, Short> spawnerDelays = new HashMap<String, Short>();
 
     /**
      * Called when player right-clicks a block.
@@ -123,20 +127,18 @@ public class SpawnerEventHandler {
         if (checkSilkTouch(stack) && ConfigValues.get("disable_silk_touch") == 0) {
             if (ConfigValues.get("disable_egg_removal_from_spawner") == 0)
                 dropMonsterEgg(event.x, event.y, event.z, event.world);
-        } else {
-            int size = 15 + event.world.rand.nextInt(15) + event.world.rand.nextInt(15);
-            event.world.spawnEntityInWorld(
-                new EntityXPOrb(
-                    event.world,
-                    (double) event.x + 0.5D,
-                    (double) event.y + 0.5D,
-                    (double) event.z + 0.5D,
-                    size));
         }
+        // No XP orb is spawned here on purpose: vanilla 1.7.10 already drops
+        // 15 + rand(15) + rand(15) XP via BlockMobSpawner.dropBlockAsItemWithChance
+        // -> dropXpOnBlockBreak when a player harvests the block. Spawning another
+        // orb here (as the Fabric original does, which cancels vanilla XP via a
+        // mixin) would double the experience.
     }
 
     /**
-     * Cancel the normal spawner block drop (we handle it ourselves)
+     * Cancel the normal spawner block drop (we handle it ourselves).
+     * Vanilla spawners drop no items anyway; this only matters when silk touch
+     * drops are disabled via config and the vanilla item drop list has to stay empty.
      */
     @SubscribeEvent
     public void onHarvestDrop(BlockEvent.HarvestDropsEvent event) {
@@ -144,8 +146,6 @@ public class SpawnerEventHandler {
             if (ConfigValues.get("disable_silk_touch") == 1) {
                 event.drops.clear();
             }
-            // Cancel XP from the block itself (we add it in onBlockBreak)
-            // event.dropExp does not exist in 1.7.10 HarvestDropsEvent
         }
     }
 
@@ -384,123 +384,160 @@ public class SpawnerEventHandler {
         // Handle limited spawns - check all loaded spawners
         if (ConfigValues.get("limited_spawns_enabled") != 0) {
             checkLimitedSpawns(event.world);
+        } else {
+            spawnerDelays.clear();
         }
 
         // Handle redstone control for spawners
         checkRedstoneControl(event.world);
 
-        // Handle default spawner range on first tick of each world
+        // Apply the default spawner range to spawners that still use the
+        // vanilla default. It is applied lazily and persisted via a flag so
+        // newly placed spawners get it too (not only spawners present at
+        // world load) without re-applying after a chunk reload.
         if (ConfigValues.get("default_spawner_range_enabled") == 1) {
-            String worldKey = event.world.getWorldInfo()
-                .getWorldName() + "_" + event.world.provider.dimensionId;
-            if (!spawnerSpawnCounts.containsKey("__range_" + worldKey)) {
-                spawnerSpawnCounts.put("__range_" + worldKey, (short) 1);
-                // Set range on all loaded spawners
-                applyDefaultRange(event.world);
-            }
+            applyDefaultRange(event.world);
         }
     }
 
     /**
-     * Check and update limited spawns for all loaded spawners
+     * Drop per-spawner tracking state when a world unloads so it cannot leak
+     * across world reloads.
+     */
+    @SubscribeEvent
+    public void onWorldUnload(WorldEvent.Unload event) {
+        spawnerDelays.clear();
+    }
+
+    /**
+     * Check and update limited spawns for all loaded spawners.
+     *
+     * The spawn count is tracked in the spawner NBT field "spawns". Because this
+     * port has no mixin hook into the vanilla spawner logic, a spawn cycle is
+     * detected by watching the Delay field: after a successful spawn vanilla
+     * resets Delay to a positive random value inside [MinSpawnDelay,
+     * MaxSpawnDelay], so the transition "Delay <= 0 -> Delay > 0" marks one
+     * completed spawn. When the cap is reached the spawner is disabled by
+     * setting RequiredPlayerRange to 0.
      */
     private void checkLimitedSpawns(World world) {
-        // Iterate through all loaded tile entities
+        int amount = ConfigValues.get("limited_spawns_amount");
+        int dim = world.provider.dimensionId;
+        // Keys of the spawners currently loaded in this world, used to drop
+        // tracking state for spawners that got unloaded.
+        Set<String> seen = new HashSet<String>();
+
         for (Object obj : world.loadedTileEntityList) {
-            if (obj instanceof TileEntityMobSpawner) {
-                TileEntityMobSpawner spawner = (TileEntityMobSpawner) obj;
-                int x = spawner.xCoord;
-                int y = spawner.yCoord;
-                int z = spawner.zCoord;
+            if (!(obj instanceof TileEntityMobSpawner)) continue;
+            TileEntityMobSpawner spawner = (TileEntityMobSpawner) obj;
+            int x = spawner.xCoord;
+            int y = spawner.yCoord;
+            int z = spawner.zCoord;
+            String key = dim + "_" + x + "_" + y + "_" + z;
+            seen.add(key);
 
-                NBTTagCompound nbt = new NBTTagCompound();
-                spawner.writeToNBT(nbt);
+            NBTTagCompound nbt = new NBTTagCompound();
+            spawner.writeToNBT(nbt);
 
-                // Read current spawn count from NBT
-                short currentSpawns = nbt.getShort("spawns");
+            // Detect a completed spawn cycle via the Delay transition.
+            short delay = nbt.getShort("Delay");
+            Short lastDelay = spawnerDelays.get(key);
+            if (lastDelay != null && lastDelay <= 0 && delay > 0) {
+                short spawns = nbt.getShort("spawns");
+                if (spawns < Short.MAX_VALUE) spawns++;
+                nbt.setShort("spawns", spawns);
+                spawner.readFromNBT(nbt);
+                spawner.markDirty();
+            }
+            spawnerDelays.put(key, delay);
 
-                // Check if spawner is disabled due to limited spawns
-                if (currentSpawns >= ConfigValues.get("limited_spawns_amount")) {
-                    // Disable the spawner by setting RequiredPlayerRange to 0
-                    if (nbt.getShort("RequiredPlayerRange") != 0) {
-                        nbt.setShort("RequiredPlayerRange", (short) 0);
-                        spawner.readFromNBT(nbt);
-                        spawner.markDirty();
-                        world.markBlockForUpdate(x, y, z);
-                    }
-                }
+            // Disable the spawner once the limit has been reached
+            if (nbt.getShort("spawns") >= amount && nbt.getShort("RequiredPlayerRange") != 0) {
+                nbt.setShort("RequiredPlayerRange", (short) 0);
+                spawner.readFromNBT(nbt);
+                spawner.markDirty();
+                world.markBlockForUpdate(x, y, z);
             }
         }
+
+        // Forget spawners that are no longer loaded
+        spawnerDelays.keySet()
+            .retainAll(seen);
     }
 
     /**
      * Check redstone control for all loaded spawners.
-     * When a spawner receives a redstone signal, disable it (set range to 0).
-     * When the signal is removed, restore the previous range.
+     * When a spawner receives a redstone signal, disable it (set range to 0)
+     * and remember the original range. When the signal is removed, restore it.
+     *
+     * The custom NBT flag "ems_redstone_disabled" distinguishes a redstone
+     * disable from a disable done through the GUI or the limited spawns limit,
+     * so removing the redstone signal can never re-enable a spawner that was
+     * intentionally disabled some other way.
      */
     private void checkRedstoneControl(World world) {
-        // Iterate through all loaded tile entities
         for (Object obj : world.loadedTileEntityList) {
-            if (obj instanceof TileEntityMobSpawner) {
-                TileEntityMobSpawner spawner = (TileEntityMobSpawner) obj;
-                int x = spawner.xCoord;
-                int y = spawner.yCoord;
-                int z = spawner.zCoord;
+            if (!(obj instanceof TileEntityMobSpawner)) continue;
+            TileEntityMobSpawner spawner = (TileEntityMobSpawner) obj;
+            int x = spawner.xCoord;
+            int y = spawner.yCoord;
+            int z = spawner.zCoord;
 
-                NBTTagCompound nbt = new NBTTagCompound();
-                spawner.writeToNBT(nbt);
+            NBTTagCompound nbt = new NBTTagCompound();
+            spawner.writeToNBT(nbt);
 
-                boolean isPowered = world.isBlockIndirectlyGettingPowered(x, y, z);
-                short currentRange = nbt.getShort("RequiredPlayerRange");
-                short spawnRange = nbt.getShort("SpawnRange");
+            boolean isPowered = world.isBlockIndirectlyGettingPowered(x, y, z);
+            short currentRange = nbt.getShort("RequiredPlayerRange");
+            short spawnRange = nbt.getShort("SpawnRange");
+            boolean redstoneDisabled = nbt.getByte("ems_redstone_disabled") != 0;
 
-                if (isPowered) {
-                    // Spawner is receiving redstone power - disable it
-                    // Save current range in SpawnRange field if not already disabled
-                    if (currentRange > 0 && spawnRange <= 4) {
-                        nbt.setShort("SpawnRange", currentRange);
-                        nbt.setShort("RequiredPlayerRange", (short) 0);
-                        spawner.readFromNBT(nbt);
-                        spawner.markDirty();
-                        world.markBlockForUpdate(x, y, z);
-                    }
-                } else {
-                    // Redstone power removed - restore previous range
-                    // Only if it was previously disabled by redstone (SpawnRange > 4)
-                    if (spawnRange > 4 && currentRange == 0) {
-                        nbt.setShort("RequiredPlayerRange", spawnRange);
-                        nbt.setShort("SpawnRange", (short) 4); // Reset to default
-                        spawner.readFromNBT(nbt);
-                        spawner.markDirty();
-                        world.markBlockForUpdate(x, y, z);
-                    }
+            if (isPowered) {
+                // Disable while powered, stashing the current range in SpawnRange.
+                // Skip spawners that are already disabled (currentRange == 0) so an
+                // intentional GUI / limited-spawns disable is never overwritten.
+                if (!redstoneDisabled && currentRange > 0) {
+                    nbt.setShort("SpawnRange", currentRange);
+                    nbt.setShort("RequiredPlayerRange", (short) 0);
+                    nbt.setByte("ems_redstone_disabled", (byte) 1);
+                    spawner.readFromNBT(nbt);
+                    spawner.markDirty();
+                    world.markBlockForUpdate(x, y, z);
                 }
+            } else if (redstoneDisabled && currentRange == 0 && spawnRange > 4) {
+                // Redstone power removed - restore the range stashed by redstone
+                nbt.setShort("RequiredPlayerRange", spawnRange);
+                nbt.setShort("SpawnRange", (short) 4); // Reset to default
+                nbt.setByte("ems_redstone_disabled", (byte) 0);
+                spawner.readFromNBT(nbt);
+                spawner.markDirty();
+                world.markBlockForUpdate(x, y, z);
             }
         }
     }
 
     /**
-     * Apply default range to all loaded spawners
+     * Apply the default spawner range to every spawner that still uses the
+     * vanilla default (RequiredPlayerRange == 16). The custom flag
+     * "ems_range_set" is persisted so the range is applied exactly once per
+     * spawner, including spawners placed after world load, and is not applied
+     * again after a chunk reload.
      */
     private void applyDefaultRange(World world) {
         short defaultRange = (short) ConfigValues.get("default_spawner_range");
 
-        // Iterate through all loaded tile entities
         for (Object obj : world.loadedTileEntityList) {
-            if (obj instanceof TileEntityMobSpawner) {
-                TileEntityMobSpawner spawner = (TileEntityMobSpawner) obj;
+            if (!(obj instanceof TileEntityMobSpawner)) continue;
+            TileEntityMobSpawner spawner = (TileEntityMobSpawner) obj;
 
-                NBTTagCompound nbt = new NBTTagCompound();
-                spawner.writeToNBT(nbt);
+            NBTTagCompound nbt = new NBTTagCompound();
+            spawner.writeToNBT(nbt);
 
-                // Only set default range if spawner hasn't been configured yet (range is default 16)
-                short currentRange = nbt.getShort("RequiredPlayerRange");
-                if (currentRange == 16) {
-                    nbt.setShort("RequiredPlayerRange", defaultRange);
-                    spawner.readFromNBT(nbt);
-                    spawner.markDirty();
-                    world.markBlockForUpdate(spawner.xCoord, spawner.yCoord, spawner.zCoord);
-                }
+            if (nbt.getByte("ems_range_set") == 0 && nbt.getShort("RequiredPlayerRange") == 16) {
+                nbt.setShort("RequiredPlayerRange", defaultRange);
+                nbt.setByte("ems_range_set", (byte) 1);
+                spawner.readFromNBT(nbt);
+                spawner.markDirty();
+                world.markBlockForUpdate(spawner.xCoord, spawner.yCoord, spawner.zCoord);
             }
         }
     }

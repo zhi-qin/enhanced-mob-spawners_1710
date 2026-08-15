@@ -9,6 +9,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 
 import com.branders.spawnermod.config.ConfigValues;
@@ -36,7 +37,7 @@ public class SpawnerKey extends Item {
     @Override
     public void addInformation(ItemStack stack, EntityPlayer player, List list, boolean advanced) {
         if (ConfigValues.get("disable_spawner_config") != 0) {
-            list.add("\u00a7cSpawner key is disabled");
+            list.add(StatCollector.translateToLocal("tooltip.spawnermod.spawner_key_disabled"));
         }
     }
 

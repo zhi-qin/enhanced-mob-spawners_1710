@@ -25,6 +25,7 @@ import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.registry.EntityRegistry;
+import cpw.mods.fml.relauncher.ReflectionHelper;
 
 @Mod(modid = SpawnerMod.MOD_ID, name = SpawnerMod.NAME, version = SpawnerMod.VERSION)
 public class SpawnerMod {
@@ -65,10 +66,13 @@ public class SpawnerMod {
         MinecraftForge.EVENT_BUS.register(eventHandler);
         // Note: SpawnerModCommands is registered via serverStart event, no need to register on EVENT_BUS
 
-        // Set custom hardness for spawner block via reflection
+        // Set custom hardness for spawner block via reflection.
+        // ReflectionHelper tries both the MCP name (dev) and the SRG name
+        // (reobfuscated production jars), otherwise the field lookup silently
+        // fails at runtime on real installs.
         try {
-            java.lang.reflect.Field hardnessField = Block.class.getDeclaredField("blockHardness");
-            hardnessField.setAccessible(true);
+            java.lang.reflect.Field hardnessField = ReflectionHelper
+                .findField(Block.class, "blockHardness", "field_149782_v");
             float customHardness = (float) ConfigValues.get("spawner_hardness");
             hardnessField.setFloat(Blocks.mob_spawner, customHardness);
             LOGGER.info("Set spawner block hardness to " + customHardness);

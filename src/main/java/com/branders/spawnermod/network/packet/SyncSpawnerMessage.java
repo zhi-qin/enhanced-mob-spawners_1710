@@ -8,6 +8,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.world.World;
 
+import com.branders.spawnermod.config.ConfigValues;
 import com.branders.spawnermod.item.SpawnerKey;
 
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -75,8 +76,20 @@ public class SyncSpawnerMessage implements IMessage {
 
             if (world == null) return null;
 
+            // Server-side validation: reject changes when the spawner config is disabled
+            if (ConfigValues.get("disable_spawner_config") != 0) return null;
+
             // Verify the block is a spawner
             if (world.getBlock(message.x, message.y, message.z) != Blocks.mob_spawner) return null;
+
+            // Only a player actually holding a Spawner Key may reconfigure a spawner.
+            // This prevents arbitrary clients from modifying spawners they cannot reach.
+            ItemStack held = player.getHeldItem();
+            if (held == null || !(held.getItem() instanceof SpawnerKey)) return null;
+
+            // The spawner must be within interaction range of the player
+            double distSq = player.getDistanceSq(message.x + 0.5D, message.y + 0.5D, message.z + 0.5D);
+            if (distSq > 16.0D * 16.0D) return null;
 
             TileEntity tileEntity = world.getTileEntity(message.x, message.y, message.z);
             if (!(tileEntity instanceof TileEntityMobSpawner)) return null;
@@ -88,6 +101,10 @@ public class SyncSpawnerMessage implements IMessage {
             // Handle spawn range toggle (same logic as 1.12+)
             if (message.requiredPlayerRange == 0) nbt.setShort("SpawnRange", nbt.getShort("RequiredPlayerRange"));
             else nbt.setShort("SpawnRange", (short) 4);
+
+            // A GUI save overrides any redstone disable state, otherwise a later
+            // redstone unpower would wrongly re-enable the spawner again.
+            nbt.setByte("ems_redstone_disabled", (byte) 0);
 
             // Apply NBT values (same as 1.12+)
             nbt.setShort("Delay", (short) 0);
@@ -103,10 +120,7 @@ public class SyncSpawnerMessage implements IMessage {
             world.markBlockForUpdate(message.x, message.y, message.z);
 
             // Damage the Spawner Key item
-            ItemStack stack = player.getHeldItem();
-            if (stack != null && stack.getItem() instanceof SpawnerKey) {
-                stack.damageItem(1, player);
-            }
+            held.damageItem(1, player);
 
             world.playAuxSFX(1004, message.x, message.y, message.z, 0);
 
